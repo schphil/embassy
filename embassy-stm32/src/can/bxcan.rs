@@ -2,6 +2,7 @@ use core::future::poll_fn;
 use core::marker::PhantomData;
 use core::ops::{Deref, DerefMut};
 use core::task::Poll;
+use core::ptr::NonNull;
 
 pub use bxcan;
 use bxcan::{Data, ExtendedId, Frame, Id, StandardId};
@@ -340,6 +341,76 @@ impl<'d, T: Instance> Can<'d, T> {
 
         // Pack into BTR register values
         Some((sjw - 1) << 24 | (bs1 as u32 - 1) << 16 | (bs2 as u32 - 1) << 20 | (prescaler as u32 - 1))
+    }
+
+    pub fn split(self) -> (CanTx<'d, T>, CanRx<'d, T>) {
+        let (tx, rx0, rx1) = self.can.split();
+        (CanTx { tx }, CanRx { rx0, rx1 })
+    }
+}
+
+pub struct CanTx<'d, T: Instance> {
+    tx: bxcan::Tx<BxcanInstance<'d, T>>,
+}
+
+impl<'d, T: Instance> CanTx<'d, T> {
+    pub async fn write(&mut self, frame: &Frame) -> bxcan::TransmitStatus {
+        poll_fn(|cx| {
+            T::state().tx_waker.register(cx.waker());
+            if let Ok(status) = self.tx.transmit(frame) {
+                return Poll::Ready(status);
+            }
+
+            Poll::Pending
+        })
+        .await
+    }
+
+    pub async fn flush(&self, mb: bxcan::Mailbox) {
+        poll_fn(|cx| {
+            T::state().tx_waker.register(cx.waker());
+            if T::regs().tsr().read().tme(mb.index()) {
+                return Poll::Ready(());
+            }
+
+            Poll::Pending
+        })
+        .await;
+    }
+}
+
+pub struct CanRx<'d, T: Instance> {
+    rx0: bxcan::Rx0<BxcanInstance<'d, T>>,
+    rx1: bxcan::Rx1<BxcanInstance<'d, T>>,
+}
+
+impl<'d, T: Instance> CanRx<'d, T> {
+    pub async fn read(&mut self) -> Result<(u16, bxcan::Frame), BusError> {
+        poll_fn(|cx| {
+            T::state().err_waker.register(cx.waker());
+            if let Poll::Ready((time, frame)) = T::state().rx_queue.recv().poll_unpin(cx) {
+                return Poll::Ready(Ok((time, frame)));
+            } else if let Some(err) = self.curr_error() {
+                return Poll::Ready(Err(err));
+            }
+
+            Poll::Pending
+        })
+        .await
+    }
+
+    fn curr_error(&self) -> Option<BusError> {
+        let err = { T::regs().esr().read() };
+        if err.boff() {
+            return Some(BusError::BusOff);
+        } else if err.epvf() {
+            return Some(BusError::BusPassive);
+        } else if err.ewgf() {
+            return Some(BusError::BusWarning);
+        } else if let Some(err) = err.lec().into_bus_err() {
+            return Some(err);
+        }
+        None
     }
 }
 
