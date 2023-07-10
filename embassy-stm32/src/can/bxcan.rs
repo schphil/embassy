@@ -90,19 +90,19 @@ pub enum BusError {
     BusWarning,
 }
 
-impl embedded_can::Error for BusError {
-    fn kind(&self) -> embedded_can::ErrorKind {
+impl embedded_hal_02::can::Error for BusError {
+    fn kind(&self) -> embedded_hal_02::can::ErrorKind {
         match *self {
-            Self::Stuff => embedded_can::ErrorKind::Stuff,
-            Self::Form => embedded_can::ErrorKind::Form,
-            Self::Acknowledge => embedded_can::ErrorKind::Acknowledge,
-            Self::BitRecessive => embedded_can::ErrorKind::Other,
-            Self::BitDominant => embedded_can::ErrorKind::Other,
-            Self::Crc => embedded_can::ErrorKind::Crc,
-            Self::Software => embedded_can::ErrorKind::Other,
-            Self::BusOff => embedded_can::ErrorKind::Other,
-            Self::BusPassive => embedded_can::ErrorKind::Other,
-            Self::BusWarning => embedded_can::ErrorKind::Other,
+            Self::Stuff => embedded_hal_02::can::ErrorKind::Stuff,
+            Self::Form => embedded_hal_02::can::ErrorKind::Form,
+            Self::Acknowledge => embedded_hal_02::can::ErrorKind::Acknowledge,
+            Self::BitRecessive => embedded_hal_02::can::ErrorKind::Other,
+            Self::BitDominant => embedded_hal_02::can::ErrorKind::Other,
+            Self::Crc => embedded_hal_02::can::ErrorKind::Crc,
+            Self::Software => embedded_hal_02::can::ErrorKind::Other,
+            Self::BusOff => embedded_hal_02::can::ErrorKind::Other,
+            Self::BusPassive => embedded_hal_02::can::ErrorKind::Other,
+            Self::BusWarning => embedded_hal_02::can::ErrorKind::Other,
         }
     }
 }
