@@ -77,6 +77,7 @@ pub struct Can<'d, T: Instance> {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum BusError {
     Stuff,
     Form,
